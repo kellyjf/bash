@@ -1,0 +1,149 @@
+This file is logger.def, from which is created logger.c.
+It implements the builtin "logger" in Bash.
+
+Copyright (C) 1987-2009 Free Software Foundation, Inc.
+
+This file is part of GNU Bash, the Bourne Again SHell.
+
+Bash is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Bash is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+
+$PRODUCES logger.c
+#include <config.h>
+
+#if defined (HAVE_UNISTD_H)
+#  include <unistd.h>
+#endif
+
+#include "../bashansi.h"
+
+#include <stdio.h>
+#include "../shell.h"
+
+#include "common.h"
+
+$BUILTIN logger
+$FUNCTION logger_builtin
+$DEPENDS_ON V9_ECHO
+$SHORT_DOC logger [-neE] [arg ...]
+Write arguments to the standard output.
+
+Display the ARGs on the standard output followed by a newline.
+
+Options:
+  -n	do not append a newline
+  -e	enable interpretation of the following backslash escapes
+  -E	explicitly suppress interpretation of backslash escapes
+
+`logger' interprets the following backslash-escaped characters:
+  \a	alert (bell)
+  \b	backspace
+  \c	suppress further output
+  \e	escape character
+  \f	form feed
+  \n	new line
+  \r	carriage return
+  \t	horizontal tab
+  \v	vertical tab
+  \\	backslash
+  \0nnn	the character whose ASCII code is NNN (octal).  NNN can be
+	0 to 3 octal digits
+  \xHH	the eight-bit character whose value is HH (hexadecimal).  HH
+	can be one or two hex digits
+
+Exit Status:
+Returns success unless a write error occurs.
+$END
+
+$BUILTIN logger
+$FUNCTION logger_builtin
+$DEPENDS_ON !V9_ECHO
+$SHORT_DOC logger [-n] [arg ...]
+Write arguments to the standard output.
+
+Display the ARGs on the standard output followed by a newline.
+
+Options:
+  -n	do not append a newline
+
+Exit Status:
+Returns success unless a write error occurs.
+$END
+
+#include <systemd/sd-journal.h>
+
+#  define VALID_ECHO_OPTIONS "neE"
+
+
+/* Print the words in LIST to standard output.  If the first word is
+   `-n', then don't print a trailing newline.  We also support the
+   logger syntax from Version 9 Unix systems. */
+int
+logger_builtin (list)
+     WORD_LIST *list;
+{
+  int i, len;
+  char *temp, *s;
+
+
+  for (; list && (temp = list->word->word) && *temp == '-'; list = list->next)
+    {
+      /* If it appears that we are handling options, then make sure that
+	 all of the options specified are actually valid.  Otherwise, the
+	 string should just be loggered. */
+      temp++;
+
+      for (i = 0; temp[i]; i++)
+	{
+	  if (strchr (VALID_ECHO_OPTIONS, temp[i]) == 0)
+	    break;
+	}
+
+      /* logger - and logger -<nonopt> both mean to just logger the arguments. */
+      if (*temp == 0 || temp[i])
+	break;
+
+      /* All of the options in TEMP are valid options to ECHO.
+	 Handle them. */
+      while (i = *temp++)
+	{
+	  switch (i)
+	    {
+	    case 'n':
+	      break;
+	    default:
+	      goto just_logger;	/* XXX */
+	    }
+	}
+    }
+
+just_logger:
+
+
+  terminate_immediately++;
+  while (list)
+    {
+      i = len = 0;
+      temp = list->word->word;
+      if (temp)
+	{
+	    int ret; 
+	    ret=sd_journal_print(LOG_INFO, "%s", temp);
+	    printf("%s", temp);
+	}
+      list = list->next;
+    }
+
+  terminate_immediately--;
+  return (sh_chkwrite (EXECUTION_SUCCESS));
+}

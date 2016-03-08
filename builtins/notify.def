@@ -1,0 +1,112 @@
+This file is notify.def, from which is created notify.c.
+It implements the builtin "notify" in Bash.
+
+Copyright (C) 1987-2009 Free Software Foundation, Inc.
+
+This file is part of GNU Bash, the Bourne Again SHell.
+
+Bash is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Bash is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+
+$PRODUCES notify.c
+#include <config.h>
+
+#if defined (HAVE_UNISTD_H)
+#  include <unistd.h>
+#endif
+
+#include "../bashansi.h"
+
+#include <stdio.h>
+#include "../shell.h"
+
+#include "common.h"
+
+$BUILTIN notify
+$FUNCTION notify_builtin
+$DEPENDS_ON V9_ECHO
+$SHORT_DOC notify [-neE] [arg ...]
+Write arguments to the standard output.
+
+Display the ARGs on the standard output followed by a newline.
+
+Options:
+  -n	do not append a newline
+  -e	enable interpretation of the following backslash escapes
+  -E	explicitly suppress interpretation of backslash escapes
+
+`notify' interprets the following backslash-escaped characters:
+  \a	alert (bell)
+  \b	backspace
+  \c	suppress further output
+  \e	escape character
+  \f	form feed
+  \n	new line
+  \r	carriage return
+  \t	horizontal tab
+  \v	vertical tab
+  \\	backslash
+  \0nnn	the character whose ASCII code is NNN (octal).  NNN can be
+	0 to 3 octal digits
+  \xHH	the eight-bit character whose value is HH (hexadecimal).  HH
+	can be one or two hex digits
+
+Exit Status:
+Returns success unless a write error occurs.
+$END
+
+$BUILTIN notify
+$FUNCTION notify_builtin
+$DEPENDS_ON !V9_ECHO
+$SHORT_DOC notify [-n] [arg ...]
+Write arguments to the standard output.
+
+Display the ARGs on the standard output followed by a newline.
+
+Options:
+  -n	do not append a newline
+
+Exit Status:
+Returns success unless a write error occurs.
+$END
+
+#include <systemd/sd-daemon.h>
+#define MSGSZ 1024
+
+/* Print the words in LIST to standard output.  If the first word is
+   `-n', then don't print a trailing newline.  We also support the
+   notify syntax from Version 9 Unix systems. */
+int
+notify_builtin (list)
+     WORD_LIST *list;
+{
+  char *temp;
+  char *sdmsg=(char *)calloc(MSGSZ,sizeof(char));
+  char *sdndx=sdmsg;
+
+  terminate_immediately++;
+  while (list)
+    {
+      temp = list->word->word;
+      if (temp)
+	{
+	  strncat(sdmsg, temp, MSGSZ-strlen(sdmsg));		
+	  strncat(sdmsg, "\n", MSGSZ-strlen(sdmsg));		
+	}
+      list = list->next;
+    }
+
+  sd_notify(0, sdmsg);
+  terminate_immediately--;
+  return (sh_chkwrite (EXECUTION_SUCCESS));
+}
