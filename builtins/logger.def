@@ -132,6 +132,8 @@ logger_priority(pstr)
 
 #define MAXSZ 1024
 
+
+
 int
 logger_builtin (list)
      WORD_LIST *list;
@@ -145,9 +147,21 @@ logger_builtin (list)
   struct iovec iov[10];
   int          icnt=0;
 
+  logbuf = (char *)calloc(MAXSZ,sizeof(char));
+  if(logbuf==NULL) return(EX_MISCERROR);
+  logndx = logbuf;
+
   reset_internal_getopt();
-  while ((opt = internal_getopt (list, "t:p:")) != -1) {
+  while ((opt = internal_getopt (list, "t:p:e:")) != -1) {
         switch (opt) {
+        case 'e':
+		iov[icnt].iov_base=logndx;
+		logndx += snprintf(logndx,  MAXSZ-strlen(logbuf), "%s", list_optarg);
+		iov[icnt].iov_len = logndx-(char*)iov[icnt].iov_base;
+		icnt++;
+		input=input->next;
+		input=input->next;
+                break;
         case 't':
                 tag = list_optarg;
 		input=input->next;
@@ -167,9 +181,6 @@ logger_builtin (list)
   if(input && input->word && 0==strncmp(input->word->word,"--",2))
     input=input->next;
 
-  logbuf = (char *)calloc(MAXSZ,sizeof(char));
-  if(logbuf==NULL) return(EX_MISCERROR);
-  logndx = logbuf;
 
   terminate_immediately++;
 
@@ -205,7 +216,38 @@ logger_builtin (list)
     }
   iov[icnt].iov_len=logndx-(char*)iov[icnt].iov_base;
   icnt++;
-
+  {
+    SHELL_VAR *funcname_v, *bash_source_v, *bash_lineno_v;
+    ARRAY *funcname_a, *bash_source_a, *bash_lineno_a;
+    char *funcname_s=NULL, *source_s=NULL, *lineno_s=NULL;
+  
+    GET_ARRAY_FROM_VAR ("FUNCNAME", funcname_v, funcname_a);
+    GET_ARRAY_FROM_VAR ("BASH_SOURCE", bash_source_v, bash_source_a);
+    GET_ARRAY_FROM_VAR ("BASH_LINENO", bash_lineno_v, bash_lineno_a);
+  
+    if (bash_lineno_a && ! array_empty (bash_lineno_a)) {
+        lineno_s = array_reference (bash_lineno_a, 0);
+        iov[icnt].iov_base=logndx;
+        logndx += snprintf(logndx,  MAXSZ-strlen(logbuf), "BASH_LINENO=%s", lineno_s);
+        iov[icnt].iov_len = logndx-(char*)iov[icnt].iov_base;
+        icnt++;
+    }
+    if (bash_source_a && ! array_empty (bash_source_a)) {
+        source_s = array_reference (bash_source_a, 1);
+        iov[icnt].iov_base=logndx;
+        logndx += snprintf(logndx,  MAXSZ-strlen(logbuf), "BASH_SOURCE=%s", source_s);
+        iov[icnt].iov_len = logndx-(char*)iov[icnt].iov_base;
+        icnt++;
+    }
+    if (funcname_a && ! array_empty (funcname_a)) {
+        funcname_s = array_reference (funcname_a, 1);
+        iov[icnt].iov_base=logndx;
+        logndx += snprintf(logndx,  MAXSZ-strlen(logbuf), "BASH_FUNCTION=%s", funcname_s);
+        iov[icnt].iov_len = logndx-(char*)iov[icnt].iov_base;
+        icnt++;
+    }
+ 
+  } 
   sd_journal_sendv(iov, icnt);
   free(logbuf);
 

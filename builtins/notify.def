@@ -22,15 +22,31 @@ $PRODUCES notify.c
 #include <config.h>
 
 #if defined (HAVE_UNISTD_H)
+#  ifdef _MINIX
+#    include <sys/types.h>
+#  endif
 #  include <unistd.h>
 #endif
 
-#include "../bashansi.h"
-
 #include <stdio.h>
-#include "../shell.h"
 
+#include "../bashansi.h"
+#include "../bashintl.h"
+
+#include "../shell.h"
+#include "../flags.h"
 #include "common.h"
+#include "bashgetopt.h"
+
+#if defined (READLINE)
+#  include "../input.h"
+#  include "../bashline.h"
+#  include <readline/readline.h>
+#endif
+
+#if defined (HISTORY)
+#  include "../bashhist.h"
+#endif
 
 $BUILTIN notify
 $FUNCTION notify_builtin
@@ -83,30 +99,46 @@ $END
 #include <systemd/sd-daemon.h>
 #define MSGSZ 1024
 
-/* Print the words in LIST to standard output.  If the first word is
-   `-n', then don't print a trailing newline.  We also support the
-   notify syntax from Version 9 Unix systems. */
 int
 notify_builtin (list)
      WORD_LIST *list;
 {
-  char *temp;
-  char *sdmsg=(char *)calloc(MSGSZ,sizeof(char));
-  char *sdndx=sdmsg;
+  char *sdmsg = NULL;
+  char *sdndx = NULL;
+  char *status=NULL;
+  int opt;
+  int opt_r = 0;
+  WORD_LIST *input = list;
 
-  terminate_immediately++;
-  while (list)
-    {
-      temp = list->word->word;
-      if (temp)
-	{
-	  strncat(sdmsg, temp, MSGSZ-strlen(sdmsg));		
-	  strncat(sdmsg, "\n", MSGSZ-strlen(sdmsg));		
-	}
-      list = list->next;
-    }
+  reset_internal_getopt();
+  while ((opt = internal_getopt (list, "rs:")) != -1) {
+        switch (opt) {
+        case 'r':
+		opt_r=1;
+                break;
+        case 's':
+                status = list_optarg;
+                input=input->next;
+                input=input->next;
+                break;
+        default:
+                builtin_usage();
+                return(EX_USAGE);
+        }
+  }
 
-  sd_notify(0, sdmsg);
-  terminate_immediately--;
+  sdmsg	=(char *)calloc(MSGSZ,sizeof(char));
+  sdndx=sdmsg;
+
+  if(opt_r) 
+	  sdndx += snprintf(sdndx, MSGSZ-strlen(sdmsg), "READY=1\n");
+  if(status)
+	  sdndx += snprintf(sdndx, MSGSZ-strlen(sdmsg), "STATUS=%s\n", status);
+
+  printf("NOTIFY %s\n",sdmsg);
+  free(sdmsg);
+	
+  if(sdndx != sdmsg) 
+	  sd_notify(0, sdmsg);
   return (sh_chkwrite (EXECUTION_SUCCESS));
 }
