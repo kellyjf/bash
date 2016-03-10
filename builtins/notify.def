@@ -105,7 +105,7 @@ notify_builtin (list)
   if(mainpid)
 	  sdndx += snprintf(sdndx, MSGSZ-strlen(sdmsg), "MAINPID=%s\n", mainpid);
 
-  printf("NOTIFY %s\n",sdmsg);
+/*  printf("NOTIFY %s\n",sdmsg); */
   free(sdmsg);
 	
   if(sdndx != sdmsg) 
