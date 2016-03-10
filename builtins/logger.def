@@ -212,8 +212,18 @@ logger_builtin (list)
         iov[icnt].iov_len = logndx-(char*)iov[icnt].iov_base;
         icnt++;
     }
- 
   } 
+
+  {
+     char *trace=NULL;
+     trace=get_string_value("TRACE");
+     if(trace) {
+        iov[icnt].iov_base=logndx;
+        logndx += snprintf(logndx,  MAXSZ-strlen(logbuf), "TRACE=%s", trace);
+        iov[icnt].iov_len = logndx-(char*)iov[icnt].iov_base;
+        icnt++;
+     }
+  }
   sd_journal_sendv(iov, icnt);
   free(logbuf);
 

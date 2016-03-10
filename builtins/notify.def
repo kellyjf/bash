@@ -71,6 +71,7 @@ notify_builtin (list)
   char *sdmsg = NULL;
   char *sdndx = NULL;
   char *status=NULL;
+  char *mainpid=NULL;
   int opt;
   int opt_r = 0;
   WORD_LIST *input = list;
@@ -95,10 +96,14 @@ notify_builtin (list)
   sdmsg	=(char *)calloc(MSGSZ,sizeof(char));
   sdndx=sdmsg;
 
+  mainpid=get_string_value("MAINPID");
+
   if(opt_r) 
 	  sdndx += snprintf(sdndx, MSGSZ-strlen(sdmsg), "READY=1\n");
   if(status)
 	  sdndx += snprintf(sdndx, MSGSZ-strlen(sdmsg), "STATUS=%s\n", status);
+  if(mainpid)
+	  sdndx += snprintf(sdndx, MSGSZ-strlen(sdmsg), "MAINPID=%s\n", mainpid);
 
   printf("NOTIFY %s\n",sdmsg);
   free(sdmsg);
