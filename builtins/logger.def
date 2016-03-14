@@ -139,6 +139,7 @@ logger_builtin (list)
 		input=input->next;
 		break;
         default:
+                free(logbuf);
                 builtin_usage();
                 return(EX_USAGE);
         }
